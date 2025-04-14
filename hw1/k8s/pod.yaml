@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-test-pod
+  labels:
+    app: custom-app
+spec:
+  containers:
+  - name: app
+    image: python:3.9-slim
+    imagePullPolicy: IfNotPresent
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      set -e
+      pip install flask
+      mkdir -p /app/logs
+      echo "$(date): Starting Flask app setup..."
+      cat > /app/app.py << EOF_APP
+      $(cat /config/APP_PYTHON)
+      EOF_APP
+
+      echo "$(date): Flask app setup complete, starting server..."
+      python /app/app.py
+    ports:
+    - containerPort: 5000
+    env:
+    - name: LOG_LEVEL
+      valueFrom:
+        configMapKeyRef:
+          name: app-config
+          key: LOG_LEVEL
+    - name: APP_PORT
+      valueFrom:
+        configMapKeyRef:
+          name: app-config
+          key: APP_PORT
+    - name: WELCOME_MESSAGE
+      valueFrom:
+        configMapKeyRef:
+          name: app-config
+          key: WELCOME_MESSAGE
+    volumeMounts:
+    - name: logs-volume
+      mountPath: /app/logs
+    - name: config-volume
+      mountPath: /config
+  volumes:
+  - name: logs-volume
+    emptyDir: {}
+  - name: config-volume
+    configMap:
+      name: app-config
