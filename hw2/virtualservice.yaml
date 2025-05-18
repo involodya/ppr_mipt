@@ -1,0 +1,49 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: main-virtualservice
+  namespace: default
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - main-gateway
+  http:
+  - match:
+    - uri:
+        exact: /log
+      method:
+        exact: POST
+    route:
+    - destination:
+        host: log-service
+        port:
+          number: 80
+    fault:
+      delay:
+        percentage:
+          value: 100
+        fixedDelay: 2s
+    timeout: 1s
+    retries:
+      attempts: 2
+      perTryTimeout: 1s
+      retryOn: gateway-error,connect-failure,refused-stream,unavailable,cancelled,deadline-exceeded,resource-exhausted
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: app-service
+        port:
+          number: 80
+  - route:
+    - destination:
+        host: app-service
+        port:
+          number: 80
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 404

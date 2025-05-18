@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-app
+        image: python:3.10-slim
+        command: ["sh", "-c", "pip install flask prometheus_client && python -u app.py"]
+        ports:
+        - containerPort: 5000
+        volumeMounts:
+        - name: app-src
+          mountPath: /app
+        workingDir: /app
+      volumes:
+      - name: app-src
+        hostPath:
+          path: ./app
