@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: log-agent
+spec:
+  selector:
+    matchLabels:
+      app: log-agent
+  template:
+    metadata:
+      labels:
+        app: log-agent
+    spec:
+      containers:
+      - name: agent
+        image: busybox:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            wget -q -O - http://custom-app-service/logs || echo "Waiting for service..."
+            sleep 30
+          done
+        volumeMounts:
+        - name: node-logs
+          mountPath: /host-logs
+      volumes:
+      - name: node-logs
+        hostPath:
+          path: /var/log/app-logs
+          type: DirectoryOrCreate

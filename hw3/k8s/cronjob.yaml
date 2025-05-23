@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: log-archiver
+spec:
+  schedule: "*/10 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: archiver
+            image: curlimages/curl:latest
+            command: ["/bin/sh", "-c"]
+            args:
+            - |
+              TIMESTAMP=$(date +%Y%m%d%H%M%S)
+              mkdir -p /tmp/logs
+              curl -s http://custom-app-service/logs > /tmp/logs/app.log
+              tar -czf /tmp/app-logs-$TIMESTAMP.tar.gz -C /tmp logs
+              echo "Logs archived to /tmp/app-logs-$TIMESTAMP.tar.gz"
+          restartPolicy: OnFailure
