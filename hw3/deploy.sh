@@ -34,6 +34,21 @@ check_and_setup_cluster() {
 
 check_and_setup_cluster
 
+if ! helm repo list | grep -q prometheus-community; then
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    helm repo update
+fi
+
+if ! kubectl get ns monitoring &>/dev/null; then
+    kubectl create ns monitoring
+fi
+
+if ! helm list -n monitoring | grep -q kube-prometheus-stack; then
+    helm install prom prometheus-community/kube-prometheus-stack -n monitoring \
+      --set grafana.enabled=false \
+      --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
+fi
+
 echo "Создание директории для манифестов..."
 mkdir -p k8s
 
@@ -378,6 +393,9 @@ echo "Применение Istio Gateway, VirtualService, DestinationRule..."
 kubectl apply -f k8s/istio-gateway.yaml
 kubectl apply -f k8s/istio-virtualservice.yaml
 kubectl apply -f k8s/istio-destinationrule-app.yaml
+
+echo "Развёртывание ServiceMonitor для приложения..."
+kubectl apply -f k8s/app-servicemonitor.yaml
 
 echo "Запуск port-forward для доступа к сервису..."
 kubectl port-forward svc/custom-app-service 8080:80 &

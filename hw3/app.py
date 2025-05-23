@@ -1,12 +1,12 @@
+from prometheus_flask_exporter import PrometheusMetrics
+import time
 import os
 import logging
 from flask import Flask, request, jsonify
 
-
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
 APP_PORT = int(os.environ.get('APP_PORT', 5000))
 WELCOME_MESSAGE = os.environ.get('WELCOME_MESSAGE', 'Welcome to the custom app')
-
 
 log_directory = '/app/logs'
 os.makedirs(log_directory, exist_ok=True)
@@ -37,16 +37,35 @@ def status():
     return jsonify({"status": "ok"})
 
 
-@app.route('/log', methods=['POST'])
-def log_message():
-    data = request.get_json()
-    message = data.get('message', '')
-    logger.info(f"Вызвана ручка лога с сообщением: {message}")
-    
-    with open(log_file, 'a') as f:
-        f.write(f"{message}\n")
+metrics = PrometheusMetrics(app)
 
-    return jsonify({"success": True})
+from prometheus_client import Counter, Summary
+
+log_requests_total = Counter('app_log_requests_total', 'Total /log requests')
+log_success_total = Counter('app_log_success_total', 'Successful /log')
+log_fail_total = Counter('app_log_fail_total', 'Failed /log')
+log_request_duration = Summary('app_log_request_duration_seconds', 'Time spent processing /log')
+
+
+@app.route('/log', methods=['POST'])
+@log_request_duration.time()
+def log_message():
+    start = time.time()
+    log_requests_total.inc()
+    try:
+        data = request.get_json()
+        message = data.get('message', '')
+        logger.info(f"Вызвана ручка лога с сообщением: {message}")
+        with open(log_file, 'a') as f:
+            f.write(f"{message}\n")
+        log_success_total.inc()
+        duration = time.time() - start
+        return jsonify({"success": True, "duration": duration})
+    except Exception as e:
+        log_fail_total.inc()
+        logger.error(f"Ошибка при логировании: {e}")
+        duration = time.time() - start
+        return jsonify({"success": False, "error": str(e), "duration": duration}), 500
 
 
 @app.route('/logs', methods=['GET'])
